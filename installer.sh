@@ -49,8 +49,3 @@ if [[ "${NO_REBOOT}" -eq 0 ]]; then
 else
 	echo "Installation completed. Reboot skipped (--no-reboot)."
 fi
-
-
-
-
-
