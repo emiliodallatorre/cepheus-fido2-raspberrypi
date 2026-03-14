@@ -1,0 +1,4 @@
+cbor2==5.8.0
+cryptography==46.0.5
+ecdsa==0.19.1
+rpi_gpio==0.7.1
