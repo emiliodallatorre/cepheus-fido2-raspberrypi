@@ -4,28 +4,105 @@
 import os
 import uuid
 import cbor2
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
 
 file_path="/etc/fido2_security_key/keys.secret"
+STORE_MAGIC = b"F2SK1"
+STORE_AAD = b"fido2-security-key-store-v1"
+KDF_SALT = b"fido2-security-key-device-kdf-v1"
+KDF_ITERATIONS = 200_000
+NONCE_SIZE = 12
+
+
+def _read_hardware_identifier():
+    try:
+        with open('/proc/cpuinfo', 'r', encoding='utf-8') as cpuinfo:
+            for line in cpuinfo:
+                if line.lower().startswith('serial'):
+                    return line.split(':', 1)[1].strip().encode('utf-8')
+    except Exception:
+        pass
+
+    try:
+        with open('/etc/machine-id', 'r', encoding='utf-8') as machine_id:
+            identifier = machine_id.read().strip()
+            if identifier:
+                return identifier.encode('utf-8')
+    except Exception:
+        pass
+
+    return uuid.getnode().to_bytes(8, 'big')
+
+
+def _derive_store_key():
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=KDF_SALT,
+        iterations=KDF_ITERATIONS,
+    )
+    return kdf.derive(_read_hardware_identifier())
+
+
+def _encrypt_store(keys_dict):
+    nonce = os.urandom(NONCE_SIZE)
+    plaintext = cbor2.dumps(keys_dict)
+    ciphertext = AESGCM(_derive_store_key()).encrypt(nonce, plaintext, STORE_AAD)
+    return STORE_MAGIC + nonce + ciphertext
+
+
+def _decrypt_store(blob):
+    if len(blob) < len(STORE_MAGIC) + NONCE_SIZE + 16:
+        raise ValueError("Encrypted key store is too short")
+    nonce_start = len(STORE_MAGIC)
+    nonce_end = nonce_start + NONCE_SIZE
+    nonce = blob[nonce_start:nonce_end]
+    ciphertext = blob[nonce_end:]
+    plaintext = AESGCM(_derive_store_key()).decrypt(nonce, ciphertext, STORE_AAD)
+    return cbor2.loads(plaintext)
+
+
+def _save_keys_to_disk(keys_dict):
+    directory = os.path.dirname(file_path)
+    os.makedirs(directory, exist_ok=True)
+    temp_path = file_path + '.tmp'
+    payload = _encrypt_store(keys_dict)
+    with open(temp_path, 'wb') as store_file:
+        store_file.write(payload)
+        store_file.flush()
+        os.fsync(store_file.fileno())
+    os.chmod(temp_path, 0o600)
+    os.replace(temp_path, file_path)
+
+
+def _load_keys_from_disk():
+    directory = os.path.dirname(file_path)
+    os.makedirs(directory, exist_ok=True)
+
+    if not os.path.exists(file_path):
+        _save_keys_to_disk({})
+        return {}
+
+    with open(file_path, 'rb') as store_file:
+        blob = store_file.read()
+
+    if not blob:
+        _save_keys_to_disk({})
+        return {}
+
+    if blob.startswith(STORE_MAGIC):
+        return _decrypt_store(blob)
+
+    keys_dict = cbor2.loads(blob)
+    _save_keys_to_disk(keys_dict)
+    print('Migrated plaintext key store to encrypted format')
+    return keys_dict
 
 current_keys={}
-
-while True:
-    print("Reading crypto file")
-    try:
-        if not os.path.exists(file_path):
-            empty_keys={}
-            with open(file_path,'wb') as file:
-                x=cbor2.dumps(empty_keys)
-                file.write(x)
-
-
-        with open(file_path,'rb') as file:
-            cbin=file.read()
-            current_keys=cbor2.loads(cbin)
-
-        break
-    except:
-        pass
+print("Reading crypto file")
+current_keys=_load_keys_from_disk()
 
 print('Keys loaded')
 
@@ -52,10 +129,7 @@ def gen_keys(rpid, userid, userentity):
     if rpid not in current_keys:
         current_keys[rpid]={}
     current_keys[rpid].update(key)
-    file=open(file_path, 'wb')
-    x=cbor2.dumps(current_keys)
-    file.write(x)
-    file.close()
+    _save_keys_to_disk(current_keys)
     return credid, pvtkey
     
 def check_key_exists(rpid, cred_id):
@@ -319,9 +393,10 @@ def authenticatorGetNextAssertion():
     assertptr=assertptr+1
     return sig, 0
 
-import os
 def authenticatorReset():
-    os.remove(file_path)
+    global current_keys
+    current_keys={}
+    _save_keys_to_disk(current_keys)
     full_data={}
     return '',0
 
