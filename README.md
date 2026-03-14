@@ -37,7 +37,7 @@ The runtime entrypoint remains a single executable script (`security_key.py`) fo
 
 ```mermaid
 flowchart LR
-    Host[Host Browser / OS] --> HID[/dev/hidg0]
+    Host["Host Browser / OS"] --> HID["/dev/hidg0"]
     HID --> Main[security_key.py]
     Main --> API[fido2sk/authenticator_api.py]
     API --> Crypto[fido2sk/crypto_ops.py]
