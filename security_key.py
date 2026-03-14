@@ -8,11 +8,11 @@ import cbor2
 import RPi.GPIO as GPIO
 
 from fido2sk.authenticator_api import (
-    authenticatorGetAssertion,
-    authenticatorGetInfo,
-    authenticatorGetNextAssertion,
-    authenticatorMakeCredential,
-    authenticatorReset,
+    authenticator_get_assertion,
+    authenticator_get_info,
+    authenticator_get_next_assertion,
+    authenticator_make_credential,
+    authenticator_reset,
 )
 from fido2sk.key_store import initialize_store
 
@@ -20,7 +20,7 @@ from fido2sk.key_store import initialize_store
 full_data = {}
 
 
-def CTAPHID_CBOR(channel, payload):
+def ctaphid_cbor(channel, payload):
     command = 0x10
     cbor_command = payload[0]
     cbor_command_bytes = payload[0:1]
@@ -29,15 +29,15 @@ def CTAPHID_CBOR(channel, payload):
     success = 0
 
     if cbor_command == 0x04:
-        reply_payload, success = authenticatorGetInfo()
+        reply_payload, success = authenticator_get_info()
     if cbor_command == 0x01:
-        reply_payload, success = authenticatorMakeCredential(cbor2.loads(cbor_payload))
+        reply_payload, success = authenticator_make_credential(cbor2.loads(cbor_payload))
     if cbor_command == 0x02:
-        reply_payload, success = authenticatorGetAssertion(cbor2.loads(cbor_payload))
+        reply_payload, success = authenticator_get_assertion(cbor2.loads(cbor_payload))
     if cbor_command == 0x08:
-        reply_payload, success = authenticatorGetNextAssertion()
+        reply_payload, success = authenticator_get_next_assertion()
     if cbor_command == 0x07:
-        reply_payload, success = authenticatorReset()
+        reply_payload, success = authenticator_reset()
 
     if success == 0:
         reply = (0).to_bytes(1, 'big')
@@ -57,7 +57,7 @@ def make_channel_id():
     return value.to_bytes(4, 'big')
 
 
-def CTAPHID_INIT(channel, payload):
+def ctaphid_init(channel, payload):
     if channel == bytes.fromhex('ffffffff'):
         channel_new = make_channel_id()
     else:
@@ -80,21 +80,21 @@ def CTAPHID_INIT(channel, payload):
     send_data(to_send)
 
 
-def CTAPHID_PING(channel, payload):
+def ctaphid_ping(channel, payload):
     command = 0x01
     bcnt = len(payload)
     to_send = preprocess_send_data(channel, command, bcnt, payload)
     send_data(to_send)
 
 
-def CTAPHID_CANCEL(channel, payload):
+def ctaphid_cancel(channel, payload):
     command = 0x11
     bcnt = 0
     to_send = preprocess_send_data(channel, command, bcnt, b'')
     send_data(to_send)
 
 
-def CTAPHID_WINK(channel, payload):
+def ctaphid_wink(channel, payload):
     command = 0x08
     bcnt = 0
     print("Authenticator wink")
@@ -102,7 +102,7 @@ def CTAPHID_WINK(channel, payload):
     send_data(to_send)
 
 
-def CTAPHID_ERROR(channel, error_code=0x7f):
+def ctaphid_error(channel, error_code=0x7f):
     command = 0x3f
     bcnt = 1
     data = (error_code).to_bytes(1, 'big')
@@ -110,7 +110,7 @@ def CTAPHID_ERROR(channel, error_code=0x7f):
     send_data(to_send)
 
 
-def CTAPHID_KEEPALIVE(channel, status):
+def ctaphid_keepalive(channel, status):
     command = 0x3b
     bcnt = 1
     data = status.to_bytes(1, 'big')
@@ -126,7 +126,7 @@ def send_keepalive(channel, payload):
     global task_thread, stop_event
     while not stop_event.is_set():
         time.sleep(0.08)
-        CTAPHID_KEEPALIVE(channel, payload)
+        ctaphid_keepalive(channel, payload)
 
 
 def start_keepalive(channel, payload):
@@ -147,15 +147,15 @@ def stop_keepalive():
 
 def run_commands(channel, command, bcnt, payload):
     if command == 0x06:
-        CTAPHID_INIT(channel, payload)
+        ctaphid_init(channel, payload)
     if command == 0x01:
-        CTAPHID_PING(channel, payload)
+        ctaphid_ping(channel, payload)
     if command == 0x11:
-        CTAPHID_CANCEL(channel, payload)
+        ctaphid_cancel(channel, payload)
     if command == 0x08:
-        CTAPHID_WINK(channel, payload)
+        ctaphid_wink(channel, payload)
     if command == 0x10:
-        CTAPHID_CBOR(channel, payload)
+        ctaphid_cbor(channel, payload)
 
 
 def process_packet(packet):
@@ -197,9 +197,9 @@ def process_packet(packet):
         pass
 
     try:
-        process_transcation(channel)
+        process_transaction(channel)
     except Exception:
-        CTAPHID_ERROR(channel)
+        ctaphid_error(channel)
 
 
 def show(packet, dat=""):
@@ -278,7 +278,7 @@ def calc_num_packets(bcnt):
     return num_pack
 
 
-def process_transcation(channel):
+def process_transaction(channel):
     cstr = channel.hex()
     data = full_data[cstr]
     if None in data:

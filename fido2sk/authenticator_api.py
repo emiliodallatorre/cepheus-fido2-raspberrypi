@@ -20,15 +20,15 @@ from .key_store import (
 aaguid_str = '4d41190c-7beb-4a84-8018-adf265a6352d'
 
 signatures = []
-assertptr = 0
-assertiontime = 0
+assert_ptr = 0
+assertion_time = 0
 
 
-def authenticatorGetInfo():
-    authenticatorInfo = {}
-    authenticatorInfo[1] = ['FIDO_2_0', 'FIDO_2_1_PRE']
-    authenticatorInfo[2] = ['credProtect']
-    authenticatorInfo[3] = uuid.UUID(aaguid_str).bytes
+def authenticator_get_info():
+    authenticator_info = {}
+    authenticator_info[1] = ['FIDO_2_0', 'FIDO_2_1_PRE']
+    authenticator_info[2] = ['credProtect']
+    authenticator_info[3] = uuid.UUID(aaguid_str).bytes
 
     options = {}
     options['rk'] = True
@@ -36,137 +36,137 @@ def authenticatorGetInfo():
     options['up'] = True
     options['uv'] = True
 
-    authenticatorInfo[4] = options
-    authenticatorInfo[5] = 1200
-    authenticatorInfo[6] = [1]
-    authenticatorInfo[7] = 8
-    authenticatorInfo[8] = 128
-    authenticatorInfo[9] = ['usb']
-    authenticatorInfo[10] = [{'alg': -8, 'type': 'public-key'}]
-    return authenticatorInfo, 0
+    authenticator_info[4] = options
+    authenticator_info[5] = 1200
+    authenticator_info[6] = [1]
+    authenticator_info[7] = 8
+    authenticator_info[8] = 128
+    authenticator_info[9] = ['usb']
+    authenticator_info[10] = [{'alg': -8, 'type': 'public-key'}]
+    return authenticator_info, 0
 
 
-def authenticatorMakeCredential(payload):
-    clientDataHash = payload[1]
+def authenticator_make_credential(payload):
+    client_data_hash = payload[1]
     rp = payload[2]
     user = payload[3]
-    userid = user['id']
+    user_id = user['id']
     rpid = rp['id']
 
     if 5 in payload:
-        excludeList = payload[5]
-        for exclude in excludeList:
+        exclude_list = payload[5]
+        for exclude in exclude_list:
             if check_key_entity_exists(rpid, exclude):
                 return '', 0x19
 
-    rpidhash = hash_data(rpid.encode())
-    cred_id, pvtkey = gen_keys(rpid, userid, user)
+    rpid_hash = hash_data(rpid.encode())
+    cred_id, pvtkey = gen_keys(rpid, user_id, user)
 
     flags = (0x45).to_bytes(1, 'big')
-    signCount = (4).to_bytes(4, 'big')
+    sign_count = (4).to_bytes(4, 'big')
 
     aaguid = uuid.UUID(aaguid_str).bytes
-    credentialIdLength = (len(cred_id)).to_bytes(2, 'big')
-    credentialPublicKey = to_cose_key(pvtkey)
+    credential_id_length = (len(cred_id)).to_bytes(2, 'big')
+    credential_public_key = to_cose_key(pvtkey)
 
-    attestedCredendialData = aaguid + credentialIdLength + cred_id + credentialPublicKey
-    authData = rpidhash + flags + signCount + attestedCredendialData
+    attested_credential_data = aaguid + credential_id_length + cred_id + credential_public_key
+    auth_data = rpid_hash + flags + sign_count + attested_credential_data
 
-    tosign = authData + clientDataHash
+    to_sign = auth_data + client_data_hash
     attstmt = {}
     attstmt['alg'] = get_algo()
-    attstmt['sig'] = sign_challenge(pvtkey, tosign)
+    attstmt['sig'] = sign_challenge(pvtkey, to_sign)
     attstmt['x5c'] = [gen_certificate(pvtkey)]
 
-    attestationobj = {}
-    attestationobj[1] = 'packed'
-    attestationobj[2] = authData
-    attestationobj[3] = attstmt
+    attestation_obj = {}
+    attestation_obj[1] = 'packed'
+    attestation_obj[2] = auth_data
+    attestation_obj[3] = attstmt
 
-    return attestationobj, 0
+    return attestation_obj, 0
 
 
-def authenticatorGetAssertion(payload):
-    global signatures, assertiontime, assertptr
+def authenticator_get_assertion(payload):
+    global signatures, assertion_time, assert_ptr
 
     signatures = []
     rpid = payload[1]
-    clientDataHash = payload[2]
-    allowList = []
+    client_data_hash = payload[2]
+    allow_list = []
 
     if 3 in payload:
-        allowList = payload[3]
+        allow_list = payload[3]
 
-    rpidhash = hash_data(rpid.encode())
+    rpid_hash = hash_data(rpid.encode())
     flags = (0x5).to_bytes(1, 'big')
-    signCount = (4).to_bytes(4, 'big')
+    sign_count = (4).to_bytes(4, 'big')
 
-    authdata = rpidhash + flags + signCount
-    tosign = authdata + clientDataHash
+    auth_data = rpid_hash + flags + sign_count
+    to_sign = auth_data + client_data_hash
 
-    if allowList == []:
+    if allow_list == []:
         all_keys = get_all_keys(rpid) or {}
         for key in all_keys:
-            allowList.append(all_keys[key]['publickeyentity'])
+            allow_list.append(all_keys[key]['publickeyentity'])
     else:
-        finlist = []
-        for cred in allowList:
+        filtered_allow_list = []
+        for cred in allow_list:
             if check_key_entity_exists(rpid, cred):
-                finlist.append(cred)
-        allowList = finlist
+                filtered_allow_list.append(cred)
+        allow_list = filtered_allow_list
 
-    numberOfCredentials = len(allowList)
+    number_of_credentials = len(allow_list)
 
-    if numberOfCredentials == 0:
-        assertptr = 0
-        assertiontime = 0
+    if number_of_credentials == 0:
+        assert_ptr = 0
+        assertion_time = 0
         return '', 0x2e
 
     c = 0
-    for cred in allowList:
-        credid = cred['id']
-        key = get_key(rpid, credid)
+    for cred in allow_list:
+        cred_id = cred['id']
+        key = get_key(rpid, cred_id)
         if key is None:
-            raise Exception('Key not found for rpid: ' + rpid + ' and credid: ' + credid.hex())
+            raise Exception('Key not found for rpid: ' + rpid + ' and credid: ' + cred_id.hex())
 
         pvtkey = key['pvtkey']
-        sig = sign_challenge(pvtkey, tosign)
+        sig = sign_challenge(pvtkey, to_sign)
         user = key['userentity']
 
-        assertobj = {}
-        assertobj[1] = cred
-        assertobj[2] = authdata
-        assertobj[3] = sig
-        assertobj[4] = user
+        assert_obj = {}
+        assert_obj[1] = cred
+        assert_obj[2] = auth_data
+        assert_obj[3] = sig
+        assert_obj[4] = user
         if c == 0:
-            assertobj[5] = numberOfCredentials
+            assert_obj[5] = number_of_credentials
         c = c + 1
-        signatures.append(assertobj)
+        signatures.append(assert_obj)
 
-    assertiontime = int(time.time())
-    assertptr = 1
+    assertion_time = int(time.time())
+    assert_ptr = 1
     return signatures[0], 0
 
 
-def authenticatorGetNextAssertion():
-    global signatures, assertiontime, assertptr
+def authenticator_get_next_assertion():
+    global signatures, assertion_time, assert_ptr
 
-    if assertptr == 0 or assertptr > len(signatures) or int(time.time()) - assertiontime > 30:
-        assertptr = 0
+    if assert_ptr == 0 or assert_ptr > len(signatures) or int(time.time()) - assertion_time > 30:
+        assert_ptr = 0
         signatures = []
-        assertiontime = 0
+        assertion_time = 0
         return '', 0x30
 
-    assertiontime = int(time.time())
-    sig = signatures[assertptr]
-    assertptr = assertptr + 1
+    assertion_time = int(time.time())
+    sig = signatures[assert_ptr]
+    assert_ptr = assert_ptr + 1
     return sig, 0
 
 
-def authenticatorReset():
-    global signatures, assertiontime, assertptr
+def authenticator_reset():
+    global signatures, assertion_time, assert_ptr
     reset_keys()
     signatures = []
-    assertptr = 0
-    assertiontime = 0
+    assert_ptr = 0
+    assertion_time = 0
     return '', 0

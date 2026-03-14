@@ -113,34 +113,34 @@ def initialize_store():
     print('Keys loaded')
 
 
-def gen_keys(rpid, userid, userentity):
+def gen_keys(rpid, user_id, user_entity):
     secret = str(uuid.uuid4())
     pvtkey, _ = generate_cryptographic_keys(secret)
-    credid = uuid.uuid4().bytes + '_cryptane'.encode()
+    cred_id = uuid.uuid4().bytes + '_cryptane'.encode()
 
     if rpid in current_keys:
         current_rp = current_keys[rpid]
         for key in current_rp:
             cred = current_rp[key]
-            if cred['userid'] == userid:
-                credid = key
+            if cred['userid'] == user_id:
+                cred_id = key
 
     key = {}
-    key[credid] = {}
-    key[credid]['pvtkey'] = pvtkey
-    key[credid]['userid'] = userid
-    key[credid]['userentity'] = userentity
-    keyentity = {}
-    keyentity['id'] = credid
-    keyentity['type'] = 'public-key'
-    key[credid]['publickeyentity'] = keyentity
+    key[cred_id] = {}
+    key[cred_id]['pvtkey'] = pvtkey
+    key[cred_id]['userid'] = user_id
+    key[cred_id]['userentity'] = user_entity
+    key_entity = {}
+    key_entity['id'] = cred_id
+    key_entity['type'] = 'public-key'
+    key[cred_id]['publickeyentity'] = key_entity
 
     if rpid not in current_keys:
         current_keys[rpid] = {}
 
     current_keys[rpid].update(key)
     _save_keys_to_disk(current_keys)
-    return credid, pvtkey
+    return cred_id, pvtkey
 
 
 def reset_keys():
