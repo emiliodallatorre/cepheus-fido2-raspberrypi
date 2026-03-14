@@ -126,6 +126,9 @@ def authenticatorGetAssertion(payload):
     for cred in allowList:
         credid = cred['id']
         key = get_key(rpid, credid)
+        if key is None:
+            raise Exception('Key not found for rpid: ' + rpid + ' and credid: ' + credid.hex())
+
         pvtkey = key['pvtkey']
         sig = sign_challenge(pvtkey, tosign)
         user = key['userentity']

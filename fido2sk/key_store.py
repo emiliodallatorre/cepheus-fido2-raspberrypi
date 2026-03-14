@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 
-from .crypto_ops import genCryptoKeys
+from .crypto_ops import generate_cryptographic_keys
 
 # Persistent encrypted key store path.
 file_path = "/etc/fido2_security_key/keys.secret"
@@ -115,7 +115,7 @@ def initialize_store():
 
 def gen_keys(rpid, userid, userentity):
     secret = str(uuid.uuid4())
-    pvtkey, _ = genCryptoKeys(secret)
+    pvtkey, _ = generate_cryptographic_keys(secret)
     credid = uuid.uuid4().bytes + '_cryptane'.encode()
 
     if rpid in current_keys:
