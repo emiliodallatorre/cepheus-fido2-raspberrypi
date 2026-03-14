@@ -22,6 +22,7 @@ echo "[3/7] Removing installed executables..."
 rm -f /usr/bin/ctap_init
 rm -f /usr/bin/security_key.py
 rm -f /usr/bin/security_key_logs
+rm -rf /usr/bin/fido2sk
 
 echo "[4/7] Removing state/data directory..."
 rm -rf /etc/fido2_security_key

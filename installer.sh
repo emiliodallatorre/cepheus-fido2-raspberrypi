@@ -30,6 +30,9 @@ chmod +x /usr/bin/ctap_init
 cp security_key.py /usr/bin
 chmod +x /usr/bin/security_key.py
 
+rm -rf /usr/bin/fido2sk
+cp -r fido2sk /usr/bin
+
 cp security_key_logs /usr/bin
 chmod +x /usr/bin/security_key_logs
 
