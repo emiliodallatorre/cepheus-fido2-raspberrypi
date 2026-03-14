@@ -15,8 +15,8 @@ You should be able to access the RPi Terminal with a keyboard + screen or via SS
 
 1. Install Git
 ```
-sudo apt-get update
-sudo apt-get install git
+sudo apt update
+sudo apt install git
 ```
 
 2. Get this repository URL
@@ -52,6 +52,27 @@ sudo ./installer.sh
 7. Wait till the system reboots.
 
 The RPi will now behave like a security key. Connect the RPi to the PC via the USB C port.
+
+## Uninstall
+
+To undo the setup and remove installed services/files:
+
+```
+sudo chmod +x uninstaller.sh
+sudo ./uninstaller.sh
+```
+
+If you also want to remove the Python crypto packages that were installed by `installer.sh`:
+
+```
+sudo PURGE_PACKAGES=1 ./uninstaller.sh
+```
+
+After uninstall, reboot to fully clear gadget/module runtime state:
+
+```
+sudo reboot
+```
 
 ## Power consideration with RPi 5
 
