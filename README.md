@@ -38,11 +38,11 @@ The runtime entrypoint remains a single executable script (`security_key.py`) fo
 ```mermaid
 flowchart LR
     Host["Host Browser / OS"] --> HID["/dev/hidg0"]
-    HID --> Main[security_key.py]
-    Main --> API[fido2sk/authenticator_api.py]
-    API --> Crypto[fido2sk/crypto_ops.py]
-    API --> Store[fido2sk/key_store.py]
-    Store --> File[/etc/fido2_security_key/keys.secret\nAES-GCM encrypted]
+    HID --> Main["security_key.py"]
+    Main --> API["fido2sk/authenticator_api.py"]
+    API --> Crypto["fido2sk/crypto_ops.py"]
+    API --> Store["fido2sk/key_store.py"]
+    Store --> File["/etc/fido2_security_key/keys.secret\nAES-GCM encrypted"]
 ```
 
 ## Installation
