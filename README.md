@@ -1,84 +1,110 @@
-# Raspberry Pi FIDO2 Key
-## This project converts an RPi 5 or RPi Zero/ Zero 2 W to a FIDO2 Security Key
+# Cepheus FIDO2 Raspberry Pi
+
+This project runs a FIDO2/CTAP authenticator service on Raspberry Pi hardware by exposing a USB HID gadget endpoint and serving CTAP2 commands from userspace. It is intended for research, prototyping, and learning.
+
+Repository:
+https://github.com/emiliodallatorre/cepheus-fido2-raspberrypi
 
 ![Banner](image.png)
 
-### ⚠️ DO NOT USE THIS IN PRODUCTION, THE CRYPTOGRAPHIC KEYS ARE STORED IN CLEARTEXT
+## Attribution
 
-For visual outputs, connect an LED to `GPIO 16`.
+This work is based on the original project by Aditya Mitra:
+https://github.com/AdityaMitra5102/RPi-FIDO2-Security-Key
 
-Install Raspberry Pi OS Lite on the Raspberry Pi. (Lite is preferred for faster boot time).
+This fork keeps the original approach and extends it with a cleaner module layout and encrypted key storage using a hardware-derived key.
 
-You should be able to access the RPi Terminal with a keyboard + screen or via SSH.
+## What this project does
 
-## Installation steps:
+At boot, `usbgadget.service` prepares the USB gadget interface and `security_key_service.service` starts the Python authenticator process. The process listens on `/dev/hidg0`, parses CTAPHID packets, executes CTAP2 commands (`GetInfo`, `MakeCredential`, `GetAssertion`, `GetNextAssertion`, `Reset`), and returns responses to the host over USB HID.
+
+For visual activity indication, connect an LED to `GPIO 16`.
+
+## Security note
+
+Private credential keys are no longer stored as cleartext CBOR. The key database is now encrypted at rest with AES-GCM. The encryption key is derived on-device from hardware identity data (CPU serial when available, with fallbacks), so copied storage files are not directly usable on another device.
+
+This is more secure than plaintext storage, but it is still not equivalent to a certified hardware secure element. Treat this as a practical hardening step for a software authenticator prototype.
+
+## Code organization
+
+The runtime entrypoint remains a single executable script (`security_key.py`) for compatibility with systemd and installer behavior, while implementation details are split into modules:
+
+- `fido2sk/key_store.py` - encrypted persistent credential storage and key lookup
+- `fido2sk/crypto_ops.py` - key generation, signatures, COSE key conversion, certificate generation
+- `fido2sk/authenticator_api.py` - CTAP2 authenticator command logic
+- `security_key.py` - CTAPHID transport loop, packet framing, GPIO indicator, process orchestration
+
+```mermaid
+flowchart LR
+    Host[Host Browser / OS] --> HID[/dev/hidg0]
+    HID --> Main[security_key.py]
+    Main --> API[fido2sk/authenticator_api.py]
+    API --> Crypto[fido2sk/crypto_ops.py]
+    API --> Store[fido2sk/key_store.py]
+    Store --> File[/etc/fido2_security_key/keys.secret\nAES-GCM encrypted]
+```
+
+## Installation
+
+Use Raspberry Pi OS Lite and ensure terminal access (local console or SSH).
 
 1. Install Git
-```
+
+```bash
 sudo apt update
-sudo apt install git
+sudo apt install -y git
 ```
 
-2. Get this repository URL
-    
-    Click on the Green `<> Code` button on this page and copy the URL
+2. Clone this repository
 
-3. Clone this repository
-```
-git clone <Repository URL>
+```bash
+git clone https://github.com/emiliodallatorre/cepheus-fido2-raspberrypi.git
+cd cepheus-fido2-raspberrypi
 ```
 
-```
-git clone https://github.com/AdityaMitra5102/RPi-FIDO2-Security-Key.git
-```
+3. Run installer
 
-4. Go into the folder
-
-    Use `cd` to go into the folder you just cloned
-
-   ```
-   cd RPi-FIDO2-Security-Key
-   ```
-
-6. Make the installer executable
-```
+```bash
 sudo chmod +x installer.sh
-```
-
-6. Run the installer as root
-```
 sudo ./installer.sh
 ```
-7. Wait till the system reboots.
 
-The RPi will now behave like a security key. Connect the RPi to the PC via the USB C port.
+By default, the installer reboots at the end. To install without immediate reboot:
+
+```bash
+sudo ./installer.sh --no-reboot
+```
+
+After reboot, connect the Raspberry Pi to the host through the USB data port used for gadget mode.
 
 ## Uninstall
 
-To undo the setup and remove installed services/files:
+To remove services, binaries, gadget configuration lines, and local credential state:
 
-```
+```bash
 sudo chmod +x uninstaller.sh
 sudo ./uninstaller.sh
 ```
 
-If you also want to remove the Python crypto packages that were installed by `installer.sh`:
+To also remove Python crypto packages installed by the installer:
 
-```
+```bash
 sudo PURGE_PACKAGES=1 ./uninstaller.sh
 ```
 
-After uninstall, reboot to fully clear gadget/module runtime state:
+Reboot after uninstall to fully clear runtime gadget/module state:
 
-```
+```bash
 sudo reboot
 ```
 
-## Power consideration with RPi 5
+## Power notes (Raspberry Pi 5)
 
-The device ideally draws around 4w (5v, 800 mA). Normal laptops or phones (without Thunderbolt) may not be able to provide this amount. Hence, it is recommended to power the device via GPIO pins or POE if you notice the device being unable to boot up or frequently shutting down.
+Typical draw can be around 4 W (5 V, ~800 mA). Some host USB ports may not provide stable power at boot. If you see boot instability, power the board through GPIO or PoE and use USB only for data.
 
-## Video Demo
+## Demo
+
 https://youtu.be/K7gz3Q2Wtug
 
 [![Video](https://img.youtube.com/vi/K7gz3Q2Wtug/0.jpg)](https://www.youtube.com/watch?v=K7gz3Q2Wtug)
