@@ -36,7 +36,7 @@ The runtime entrypoint remains a single executable script (`security_key.py`) fo
 - `security_key.py` - CTAPHID transport loop, packet framing, GPIO indicator, process orchestration
 
 ```mermaid
-flowchart LR
+flowchart TB
     Host["Host Browser / OS"] --> HID["/dev/hidg0"]
     HID --> Main["security_key.py"]
     Main --> API["fido2sk/authenticator_api.py"]
