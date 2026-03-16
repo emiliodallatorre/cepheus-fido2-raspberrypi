@@ -21,7 +21,7 @@ grep -qxF "dwc2" /etc/modules || echo "dwc2" >> /etc/modules
 grep -qxF "libcomposite" /etc/modules || echo "libcomposite" >> /etc/modules
 
 apt install -y --no-install-recommends python3 python3-dev python3-pip
-apt install -y --no-install-recommends python3-cbor2 python3-cryptography python3-ecdsa 
+apt install -y --no-install-recommends python3-cbor2 python3-cryptography python3-ecdsa python3-rpi.gpio
 
 
 cp ctap_init /usr/bin
